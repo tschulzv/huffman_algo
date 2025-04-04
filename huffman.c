@@ -37,6 +37,17 @@ typedef struct _campobits {
     int tamano;
 } campobits;
 
+/*
+ estructura para relacionar caracteres
+ con sus correspondientes codigos (campobits)
+*/
+typedef struct _codigochar {
+    char c;
+    campobits codigo;
+};
+
+
+
 /* Esto utiliza aritmetica de bits para agregar un
    bit a un campo.
    
@@ -286,7 +297,8 @@ static int calcular_frecuencias(int* frecuencias, char* entrada) {
         }
         // aumentar el conteo del caracter correspondiente en el array de ascii
         // castear a unsigned char para asegurar que los chars sean del 0 a 255
-        frecuencias[(unsigned char)c]++;
+        //frecuencias[(unsigned char)c]++;
+        frecuencias[c]++;
     }
     fclose(f);
     
@@ -356,10 +368,8 @@ static Arbol crear_huffman(int* frecuencias) {
 
 
 static int codificar(Arbol T, char* entrada, char* salida) {
-
     FILE* in = NULL;
     BitStream out = NULL;
-
     /* Dado el arbol crear una tabla que contiene la
        secuencia de bits para cada caracter.
        
@@ -369,13 +379,21 @@ static int codificar(Arbol T, char* entrada, char* salida) {
        mientras en un campo (bits), y el numero de bits
        que necesito en otro (tamano)
     */
+    // el indice del elemento corresponde a su ascii
     campobits tabla[NUM_CHARS];
 
     /* Inicializar tabla de campo de bits a cero */
     memset(tabla, 0, NUM_CHARS*sizeof(struct _campobits));
-    
-    // recorrer el arbol, poniendo el 'codigo' de cada caracter
 
+    // crear un campobits que usaremos para guardar los codigos mientras recorremos el árbol
+    campobits* bits = (campobits*)malloc(sizeof(struct _campobits));
+    CONFIRM_RETURN(bits);
+    bits->bits = 0;
+    bits->tamano = 0;
+
+    // recorrer el arbol, poniendo el 'codigo' de cada caracter en la tabla
+    crear_tabla(tabla, T, bits);
+    
     
     /* Abrir archivos */
     /* TU IMPLEMENTACION VA AQUI .. */
@@ -435,8 +453,35 @@ static int codificar(Arbol T, char* entrada, char* salida) {
     return 0;
 }
 
+/*
+    Recorrer recursivamente el arbol guardando en 'bits' 1 o 0 
+    segun avancemos a la derecha o izquierda.
+    Cuando encontramos una hoja, es un caracter,
+    guardamos en el indice correspondiente a su num en ascii
+*/
 static void crear_tabla(campobits* tabla, Arbol T, campobits* bits) {
+    CONFIRM_RETURN(T);
 
+    // si llegamos una hoja, guardamos el valor de 'bits' en la tabla
+    if (arbol_izq(T) != NULL && arbol_der(T) != NULL) {
+        // obtener el valor del nodo
+        PrioValue pv = (PrioValue)(arbol_valor(T));
+        tabla[(unsigned char)pv->value] = *bits;
+        return;
+    }
+
+    // si no es una hoja seguir recursionando 
+    // crear copias desreferenciadas para evitar que se 'mezclen' los valores de distintas llamadas recursivas
+    
+    // hacia la izquierda, agregando 0
+    campobits izquierda = *bits; 
+    bits_agregar(&izquierda, 0);
+    crear_tabla(tabla, arbol_izq(T), &izquierda);
+
+    // hacia la derecha, agregando 0
+    campobits derecha = *bits;
+    bits_agregar(&derecha, 1);
+    crear_tabla(tabla, arbol_der(T), &derecha);
 }
 
              

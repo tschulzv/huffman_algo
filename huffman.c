@@ -1,4 +1,4 @@
-
+#define _CRT_SECURE_NO_WARNINGS
 #include "huffman.h"
 
 #include <stdio.h>
@@ -36,16 +36,6 @@ typedef struct _campobits {
     unsigned int bits;
     int tamano;
 } campobits;
-
-/*
- estructura para relacionar caracteres
- con sus correspondientes codigos (campobits)
-*/
-typedef struct _codigochar {
-    char c;
-    campobits codigo;
-};
-
 
 
 /* Esto utiliza aritmetica de bits para agregar un
@@ -234,7 +224,7 @@ int comprimir(char* entrada, char* salida) {
     arbol_imprimir(arbol, imprimirNodo); 
 
     /* Segundo recorrido - Codificar archivo */
-    CONFIRM_TRUE(0 == codificar(arbol, entrada, salida), 0);
+    //CONFIRM_TRUE(0 == codificar(arbol, entrada, salida), 0);
     
     arbol_destruir(arbol);
     
@@ -311,13 +301,13 @@ static int calcular_frecuencias(int* frecuencias, char* entrada) {
 static Arbol crear_huffman(int* frecuencias) {
     // 1. crear la pq y verificar su creacion correcta
     PQ pq = pq_create();
-    if (pq == NULL) { return 1; }
+    if (pq == NULL) { return NULL; }
 
     // recorrer array de ascii y agregar a pq los caracteres con frecuencia > 0
     for (int i = 0; i < 256; i++) {
         if (frecuencias[i] > 0) {
             char* ch = malloc(sizeof(char));
-            if (ch == NULL) { return 1; }
+            if (ch == NULL) { return NULL; }
             *ch = (char)i;
             pq_add(pq, ch, frecuencias[i]);
         }
@@ -335,29 +325,36 @@ static Arbol crear_huffman(int* frecuencias) {
         if (pv1 == NULL || pv2 == NULL) { return NULL; }
         // suma de sus prioridades
         int suma = pv1->prio + pv2->prio;
+
+        // crear el nuevo arbol con la suma como valor de raiz, y los caracteres/arboles de pv1 y pv2
+        Arbol arbol = arbol_crear(suma);
+
+        // si el valor de pv1 o pv2 ya es un arbol, no se necesita crear un nuevo nodo; si aun es un char se crea el nodo
+        Arbol izq = (_es_subarbol(pv1->value)) ? arbol_crear(pv1->value) : (Arbol)pv1->value;
+        Arbol der = (_es_subarbol(pv2->value)) ? arbol_crear(pv2->value) : (Arbol)pv2->value;
+
+        if (arbol == NULL || izq == NULL || der == NULL) return NULL;
+        
+        // agregar hijos al arbol 
+        arbol_agregarIzq(arbol, izq);
+        arbol_agregarDer(arbol, der);
       
-        // crear estructura PrioValue para la raiz y verificar creacion
+        // crear estructura PrioValue para guardar el arbol y verificar creacion
         PrioValue raiz = (PrioValue)malloc(sizeof(struct _PrioValue));
         if (raiz == NULL) return NULL;
         // poner como prioridad la suma de prioridades
-        raiz->value = NULL;
+        raiz->value = arbol;
         raiz->prio = suma;
 
-        // crear el nuevo arbol con la raiz
-        Arbol arbol = arbol_crear(raiz);
-        if (arbol == NULL) return NULL;
-        // poner a pv1 y pv2 como hijos
-        arbol_agregarIzq(raiz, pv1);
-        arbol_agregarDer(raiz, pv2);
-
         // meter el arbol de nuevo en pq
-        pq_add(pq, arbol, suma);
+        pq_add(pq, raiz, suma);
     }
     // al final, queda un solo elemento en pq, que es el arbol
-    PrioValue pvFinal = NULL;
-    pq_remove(pq, (void**)&pvFinal);
-    Arbol a = (Arbol)pvFinal->value;
+    PrioValue pv = NULL;
+    pq_remove(pq, (void**)&pv);
 
+    if (pv == NULL) { return 0; }
+    Arbol a = (Arbol)pv->value;
     // limpieza
     pq_destroy(pq);
     // retornar el arbol resultante
@@ -387,13 +384,12 @@ static int codificar(Arbol T, char* entrada, char* salida) {
 
     // crear un campobits que usaremos para guardar los codigos mientras recorremos el árbol
     campobits* bits = (campobits*)malloc(sizeof(struct _campobits));
-    CONFIRM_RETURN(bits);
+    CONFIRM_NOTNULL(bits, 1);
     bits->bits = 0;
     bits->tamano = 0;
 
     // recorrer el arbol, poniendo el 'codigo' de cada caracter en la tabla
     crear_tabla(tabla, T, bits);
-    
     
     /* Abrir archivos */
     /* TU IMPLEMENTACION VA AQUI .. */
@@ -463,10 +459,10 @@ static void crear_tabla(campobits* tabla, Arbol T, campobits* bits) {
     CONFIRM_RETURN(T);
 
     // si llegamos una hoja, guardamos el valor de 'bits' en la tabla
-    if (arbol_izq(T) != NULL && arbol_der(T) != NULL) {
+    if (arbol_izq(T) == NULL && arbol_der(T) == NULL) {
         // obtener el valor del nodo
         PrioValue pv = (PrioValue)(arbol_valor(T));
-        tabla[(unsigned char)pv->value] = *bits;
+        tabla[(unsigned char)*(char*)pv->value] = *bits;
         return;
     }
 
@@ -530,5 +526,15 @@ static void decodificar(BitStream in, BitStream out, Arbol arbol) {
    la compresion y descompresion.
 */
 static void imprimirNodo(Arbol nodo) {
-    /* TU IMPLEMENTACION AQUI */
+    CONFIRM_RETURN(nodo);
+    keyvaluepair* val = (keyvaluepair*)arbol_valor(nodo);
+    printf("%d,%c\n", val->frec, val->c);
+}
+/*
+Funcion utilizada para verificar si el PrioValue sacado de la PQ es solo un caracter, o si ya contiene un arbol
+En este caso, un arbol dentro de la cola ya deberia tener un hijo izq y un hijo derecho, por lo que se verifica que no sean NULL
+*/
+static int _es_subarbol(void* valor) {
+    Arbol nodo = (Arbol)valor;
+    return nodo != NULL && (arbol_izq(nodo)!= NULL || arbol_der(nodo) != NULL);
 }

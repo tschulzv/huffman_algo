@@ -11,9 +11,11 @@
 /* Implementacion de una cola de prioridades usando un Monticulo (Heap) */
 
 /* PrioValue es un contenedor para almacenar la combinacion de Prioridad+Valor dentro del arreglo*/
+// agregue un campo int es_arbol para facilitar el manejo de chars vs arboles en la pq
 typedef struct _PrioValue {
 	int prio;
 	void* value;
+	int es_arbol;
 }*PrioValue;
 
 /*Heap es la estructura que contiene el arreglo (de PrioValues), la capacidad del arreglo y el tamano del monticulo */
@@ -35,7 +37,7 @@ PQ pq_create();
   
   retorna TRUE si tuvo exito, FALSE si no
 */
-BOOLEAN pq_add(PQ pq, void* valor, int prioridad);
+BOOLEAN pq_add(PQ pq, void* valor, int prioridad, int es_arbol);
 
 /*
 Saca el valor de menor prioridad (cima del monticulo) y lo guarda en la posicion retVal (paso por referencia)

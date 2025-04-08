@@ -296,7 +296,6 @@ static int calcular_frecuencias(int* frecuencias, char* entrada) {
 }
 
 
-
 /* Crea el arbol huffman en base a las frecuencias dadas */
 static Arbol crear_huffman(int* frecuencias) {
     // 1. crear la pq y verificar su creacion correcta
@@ -309,10 +308,12 @@ static Arbol crear_huffman(int* frecuencias) {
             char* ch = malloc(sizeof(char));
             if (ch == NULL) { return NULL; }
             *ch = (char)i;
-            pq_add(pq, ch, frecuencias[i]);
+            pq_add(pq, ch, frecuencias[i], 0);
+            printf("AGREGAR A PQ: '%c' (ASCII %d), FRECUENCIA: %d\n", *ch, i, frecuencias[i]);
+
         }
     }
-
+ 
    /* 2. mientras haya mas de un arbol en la cola, sacar dos arboles y juntarlos       
    reinsertar el nuevo arbol combinado
    */
@@ -323,38 +324,66 @@ static Arbol crear_huffman(int* frecuencias) {
         pq_remove(pq, (void**)&pv1);
         pq_remove(pq, (void**)&pv2);
         if (pv1 == NULL || pv2 == NULL) { return NULL; }
-        // suma de sus prioridades
-        int suma = pv1->prio + pv2->prio;
+        /*
+        / si pv1 aun no es un arbol, convertir su valor a char
+        if (pv1->es_arbol != 0) {
+            char1 = (char*)pv1->value;
+            izq = arbol_crear(char1);
+        }
+        else {
+            izq = (Arbol)(pv1->value);
+        }
+        if (pv2->es_arbol != 0) {
+            char2 = (char*)pv2->value;
+            der = arbol_crear(char1);
+        }
+        else {
+            der = (Arbol)(pv2->value);
+        }
 
-        // crear el nuevo arbol con la suma como valor de raiz, y los caracteres/arboles de pv1 y pv2
-        Arbol arbol = arbol_crear(suma);
+        
+        char* char1 = (char*)malloc(sizeof(char));
+        char* char2 = (char*)malloc(sizeof(char));
+        Arbol izq;
+        Arbol der;
+
+        */
+
+        int suma = pv1->prio + pv2->prio;
+        printf("\nSuma de prioridades es:% d", suma);
+        // puntero a un int para el valor del arbol
+        int* pSuma = malloc(sizeof(int));
+        if (pSuma == NULL) return NULL;
+        *pSuma = suma;
+
+        // crear el nuevo arbol con la suma como valor de raiz, y los caracteres/arboles de pv1 y pv2 como hijos
+        Arbol arbol = arbol_crear(pSuma);
+        printf("se creo el arbol con valor: %d", *pSuma);
 
         // si el valor de pv1 o pv2 ya es un arbol, no se necesita crear un nuevo nodo; si aun es un char se crea el nodo
-        Arbol izq = (_es_subarbol(pv1->value)) ? arbol_crear(pv1->value) : (Arbol)pv1->value;
-        Arbol der = (_es_subarbol(pv2->value)) ? arbol_crear(pv2->value) : (Arbol)pv2->value;
+        Arbol izq = pv1->es_arbol == 1 ? (Arbol)(pv1->value) : arbol_crear(pv1->value);
+        Arbol der = pv2->es_arbol == 1 ? (Arbol)(pv2->value) : arbol_crear(pv2->value);
 
         if (arbol == NULL || izq == NULL || der == NULL) return NULL;
         
         // agregar hijos al arbol 
         arbol_agregarIzq(arbol, izq);
         arbol_agregarDer(arbol, der);
-      
-        // crear estructura PrioValue para guardar el arbol y verificar creacion
-        PrioValue raiz = (PrioValue)malloc(sizeof(struct _PrioValue));
-        if (raiz == NULL) return NULL;
-        // poner como prioridad la suma de prioridades
-        raiz->value = arbol;
-        raiz->prio = suma;
-
+     
         // meter el arbol de nuevo en pq
-        pq_add(pq, raiz, suma);
+        pq_add(pq, arbol, suma, 1);
     }
     // al final, queda un solo elemento en pq, que es el arbol
     PrioValue pv = NULL;
     pq_remove(pq, (void**)&pv);
+    printf("ya se termino el arbol");
 
     if (pv == NULL) { return 0; }
+    printf("\nprioridad: %d", pv->prio);
     Arbol a = (Arbol)pv->value;
+    int *numero = (int*)arbol_valor(a);
+    
+    printf("se obtuvo un arbol con valor en la raiz: %d", *numero); // error aqui
     // limpieza
     pq_destroy(pq);
     // retornar el arbol resultante
@@ -527,14 +556,23 @@ static void decodificar(BitStream in, BitStream out, Arbol arbol) {
 */
 static void imprimirNodo(Arbol nodo) {
     CONFIRM_RETURN(nodo);
-    keyvaluepair* val = (keyvaluepair*)arbol_valor(nodo);
-    printf("%d,%c\n", val->frec, val->c);
+    // Si es una hoja (sin hijos)
+    if (arbol_izq(nodo) == NULL && arbol_der(nodo) == NULL) {
+        char* c = (char*)arbol_valor(nodo);
+        printf("'%c'", *c);  // Muestra el carácter
+    }
+    else { // si es un nodo interno 
+        int* freq = (int*)arbol_valor(nodo);
+        printf("%d", *freq);  // Muestra la suma de frecuencias
+    }
 }
 /*
 Funcion utilizada para verificar si el PrioValue sacado de la PQ es solo un caracter, o si ya contiene un arbol
 En este caso, un arbol dentro de la cola ya deberia tener un hijo izq y un hijo derecho, por lo que se verifica que no sean NULL
-*/
+
 static int _es_subarbol(void* valor) {
     Arbol nodo = (Arbol)valor;
-    return nodo != NULL && (arbol_izq(nodo)!= NULL || arbol_der(nodo) != NULL);
-}
+    if 
+    return 0;
+    //return nodo != NULL && (arbol_izq(nodo)!= NULL || arbol_der(nodo) != NULL);
+} */

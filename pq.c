@@ -32,7 +32,7 @@ Agrega un valor a la cola con la prioridad dada
 
 retorna TRUE si tuvo exito, FALSE si no
 */
-BOOLEAN pq_add(PQ pq, void* valor, int prioridad) {
+BOOLEAN pq_add(PQ pq, void* valor, int prioridad, int es_arbol) {
 	// validar argumentos
 	if (pq == NULL) return FALSE;
 	if (valor == NULL) return FALSE;
@@ -47,6 +47,7 @@ BOOLEAN pq_add(PQ pq, void* valor, int prioridad) {
 	// asignarle los valores
 	pv->value = valor;
 	pv->prio = prioridad;
+	pv->es_arbol = es_arbol;
 
 	// poner en el índice size + 1 y aumentar el size; luego propagar arriba
 	int newIndex = pq->size + 1;

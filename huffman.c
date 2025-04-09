@@ -199,6 +199,8 @@ static Arbol leer_arbol(BitStream bs);
 static void decodificar(BitStream in, BitStream out, Arbol arbol);
 
 static void imprimirNodo(Arbol nodo);
+static int _es_hoja(Arbol nodo);
+static void _escribir_arbol(Arbol a, BitStream out);
 
 /*====================================================
      Implementacion de funciones publicas
@@ -426,6 +428,12 @@ static int codificar(Arbol T, char* entrada, char* salida) {
 
     out = OpenBitStream(salida, "w");
 
+    // ESCRITURA DEL ARBOL -----------------------------------------
+    // escribimos en preorden el arbol en el archivo de salida
+    arbol_preorden(T, _escribir_arbol, out);
+
+
+    // COMPRESION DEL TEXTO  ---------------------------------------
     // abirir el archivo de entrada
     in = fopen(entrada, "r");
     if (in == NULL) {
@@ -612,6 +620,21 @@ static int _es_hoja(Arbol nodo) {
     CONFIRM_NOTNULL(nodo, -1);
     return (arbol_izq(nodo) == NULL && arbol_der(nodo) == NULL);
 }
+
+static void _escribir_arbol(Arbol a, BitStream out) {
+    CONFIRM_RETURN(a);
+    CONFIRM_RETURN(out);
+    // si el nodo es una hoja ponemos un 1 y el byte del caracter
+    if (_es_hoja(a)) {
+        PutBit(out, 1);
+        char* c = (char*)arbol_valor(a);
+        PutByte(out, *c);
+    }
+    else { // si no ponemos un 0 
+        PutBit(out, 0);
+    }
+}
+
 /*
 Funcion utilizada para verificar si el PrioValue sacado de la PQ es solo un caracter, o si ya contiene un arbol
 En este caso, un arbol dentro de la cola ya deberia tener un hijo izq y un hijo derecho, por lo que se verifica que no sean NULL

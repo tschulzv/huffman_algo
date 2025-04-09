@@ -199,8 +199,11 @@ static Arbol leer_arbol(BitStream bs);
 static void decodificar(BitStream in, BitStream out, Arbol arbol);
 
 static void imprimirNodo(Arbol nodo);
+static void imprimirNodoReconstruido(Arbol nodo);
 static int _es_hoja(Arbol nodo);
 static void _escribir_arbol(Arbol a, BitStream out);
+static Arbol _crear_nodo_interno(Arbol izq, Arbol der);
+static void _recorrer(Arbol a, BitStream in, BitStream out);
 
 /*====================================================
      Implementacion de funciones publicas
@@ -248,13 +251,15 @@ int descomprimir(char* entrada, char* salida) {
     /* Abrir archivo de entrada */
     in = OpenBitStream(entrada, "r");
     
+    // LEER Y RECONSTRUIR EL ARBOL -------------
     /* Leer Arbol de Huffman */
     arbol = leer_arbol(in);
-    arbol_imprimir(arbol, imprimirNodo);
+    arbol_imprimir(arbol, imprimirNodoReconstruido);
 
+    // LEER EL TEXTO COMPRIMIDO  Y DESCOMPRIMIR
     /* Abrir archivo de salida */
     out = OpenBitStream(salida, "w");
-    
+
     /* Decodificar archivo */
     decodificar(in, out, arbol);
     
@@ -576,10 +581,25 @@ static void crear_tabla(campobits* tabla, Arbol T, campobits* bits) {
    porque no hay mas nodos sin hijos)
 */
 static Arbol leer_arbol(BitStream bs) {
-  
-    /* TU IMPLEMENTACION AQUI */
-
-    return NULL;
+    CONFIRM_NOTNULL(bs, NULL);
+    // leer un bit de bs
+    int bit = GetBit(bs);
+    // si el bit leido es una hoja debemos leer el ascii
+    if (bit == 1) {
+        char c = (char)GetByte(bs);
+        // creamos la hoja con el char como valor
+        return arbol_crear(c);
+    }
+    else if (bit == 0){
+        // leer recursivamente creando nodo izq y der
+        Arbol izq = leer_arbol(bs);
+        Arbol der = leer_arbol(bs);
+        // creamos el nodo interno que une ambos arboles
+        _crear_nodo_interno(izq, der);
+    }
+    else { // si hay un error de lectura
+        return NULL;
+    }
 
 }
 
@@ -593,8 +613,38 @@ static Arbol leer_arbol(BitStream bs) {
    Sigue con este proceso hasta que no hay mas bits en in.
 */   
 static void decodificar(BitStream in, BitStream out, Arbol arbol) {
-  
-    /* TU IMPLEMENTACION AQUI */
+    CONFIRM_RETURN(arbol);
+    CONFIRM_RETURN(in);
+    CONFIRM_RETURN(out);
+    Arbol raiz = (Arbol)arbol;
+
+    // mientras aun quedan bits en in
+    while (!IsEmptyBitStream(in)) {
+        // recorre hasta encontrar una hoja
+        // cuando encuentra la hoja escribe el caracter
+        // luego vuelve a recorrer desde la raiz
+        _recorrer(raiz, in, out);
+    }
+   
+}
+// recorre un arbol y si llega a una hoja pone el caracter en el archivo
+static void _recorrer(Arbol a, BitStream in, BitStream out) {
+    if (_es_hoja(a)) {
+        char c = (char)arbol_valor(a);
+        PutByte(out, c); // pone el caracter en el archivo de salida
+        return;
+    }
+    else { 
+        // obtener un bit
+        int bit = GetBit(in);
+        if (bit == 0) { // si es 0, ir a la izquierda
+            _recorrer(arbol_izq(a), in, out);
+        }
+        if (bit == 1) { // si es 1 a la derecha
+            _recorrer(arbol_der(a), in, out);
+        }
+    }
+    
 }
 
 
@@ -616,6 +666,20 @@ static void imprimirNodo(Arbol nodo) {
     }
 }
 
+// imprimir nodo del arbol reconstruido
+// en este caso, ya no tenemos valores en os nodos internos, asi que imprimimos un * 
+static void imprimirNodoReconstruido(Arbol nodo) {
+    CONFIRM_RETURN(nodo);
+    // Si es una hoja (sin hijos)
+    if (arbol_izq(nodo) == NULL && arbol_der(nodo) == NULL) {
+        char c = (char)arbol_valor(nodo);
+        printf("'%c'", c);  // Muestra el carácter
+    }
+    else { // si es un nodo interno mostrar *
+        printf("*");  
+    }
+}
+
 static int _es_hoja(Arbol nodo) {
     CONFIRM_NOTNULL(nodo, -1);
     return (arbol_izq(nodo) == NULL && arbol_der(nodo) == NULL);
@@ -633,6 +697,16 @@ static void _escribir_arbol(Arbol a, BitStream out) {
     else { // si no ponemos un 0 
         PutBit(out, 0);
     }
+}
+
+// funcion usada para reconstruir el arbol
+// crea un nodo sin valor, con hijo izq y derecho
+static Arbol _crear_nodo_interno(Arbol izq, Arbol der) {
+    CONFIRM_NOTNULL(izq, NULL);
+    CONFIRM_NOTNULL(der, NULL);
+    Arbol a = arbol_crear(NULL);
+    arbol_agregarIzq(a, izq);
+    arbol_agregarDer(a, der);
 }
 
 /*

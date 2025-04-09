@@ -224,7 +224,7 @@ int comprimir(char* entrada, char* salida) {
     arbol_imprimir(arbol, imprimirNodo); 
 
     /* Segundo recorrido - Codificar archivo */
-    //CONFIRM_TRUE(0 == codificar(arbol, entrada, salida), 0);
+    CONFIRM_TRUE(0 == codificar(arbol, entrada, salida), 0);
     
     arbol_destruir(arbol);
     
@@ -419,6 +419,45 @@ static int codificar(Arbol T, char* entrada, char* salida) {
 
     // recorrer el arbol, poniendo el 'codigo' de cada caracter en la tabla
     crear_tabla(tabla, T, bits);
+
+    // creacion del archivo bitstream
+    int i = 0;
+    int j = 0;
+
+    out = OpenBitStream(salida, "w");
+
+    // abirir el archivo de entrada
+    in = fopen(entrada, "r");
+    if (in == NULL) {
+        perror("Error al abrir el archivo");
+        return 1;
+    }
+    campobits* b = NULL;
+    while (1) {
+        char c = fgetc(in);
+        if (c == EOF) {
+            break;
+        }
+        //b = &tabla[c]; 
+        /*
+        for (i = 0; i < b->tamano; i++) { //escribir los bits del campobit, es decir el codigo del caracter
+            int bit = bits_leer(b, i);
+            PutBit(out, bit);
+        }
+        */
+
+        // buscar el campobits correspondiente en la tabla (indice = ascii del caracter) 
+        // recorrer sus bits y poner en el archivo
+        for (i = 0; i < tabla[c].tamano; i++) {
+            int bit = 0 != (tabla[c].bits & (0x1 << i));
+            PutBit(out, bit);
+        }
+    }
+
+    // liberar memoria utilizada
+    free(b);
+   
+
     
     /* Abrir archivos */
     /* TU IMPLEMENTACION VA AQUI .. */
@@ -488,10 +527,12 @@ static void crear_tabla(campobits* tabla, Arbol T, campobits* bits) {
     CONFIRM_RETURN(T);
 
     // si llegamos una hoja, guardamos el valor de 'bits' en la tabla
-    if (arbol_izq(T) == NULL && arbol_der(T) == NULL) {
+    if (_es_hoja(T)) {
         // obtener el valor del nodo
-        PrioValue pv = (PrioValue)(arbol_valor(T));
-        tabla[(unsigned char)*(char*)pv->value] = *bits;
+        char* c = (char*)arbol_valor(T);
+        // guardamos en la tabla de campobits usando el valor en ascii del char como indice
+        tabla[*c] = *bits;
+        printf("se escribio codigo de %c", *c);
         return;
     }
 
@@ -565,6 +606,11 @@ static void imprimirNodo(Arbol nodo) {
         int* freq = (int*)arbol_valor(nodo);
         printf("%d", *freq);  // Muestra la suma de frecuencias
     }
+}
+
+static int _es_hoja(Arbol nodo) {
+    CONFIRM_NOTNULL(nodo, -1);
+    return (arbol_izq(nodo) == NULL && arbol_der(nodo) == NULL);
 }
 /*
 Funcion utilizada para verificar si el PrioValue sacado de la PQ es solo un caracter, o si ya contiene un arbol
